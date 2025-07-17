@@ -7,6 +7,7 @@
 #' @param ifn_imputation_source 
 #' @param res 
 #' @param crs_out 
+#' @param verbose 
 #'
 #' @returns
 #' @export
@@ -18,7 +19,8 @@ init_province_medfateland <- function(emf_dataset_path,
                                       target_polygon  = NULL,
                                       ifn_imputation_source = "IFN4",
                                       res = 500, 
-                                      crs_out = "EPSG:25830", verbose = TRUE) {
+                                      crs_out = "EPSG:25830", 
+                                      verbose = TRUE) {
   if(verbose) cli::cli_progress_step("Read MFE25 for target province")
   sf_mfe <- sf::read_sf(paste0(emf_dataset_path, "ForestMaps/Spain/MFE25/MFE_PROVINCES/MFE_", province_code, "_class.gpkg"))
   sf_mfe <- sf::st_make_valid(sf_mfe)
@@ -54,8 +56,8 @@ init_province_medfateland <- function(emf_dataset_path,
                             province_code ,"_ETRS89_H", 
                             province_utm_fuse, ".tif")) # Same number as province
   if(verbose) cli::cli_progress_step(paste0("Add topography to sf"))
-  sf_for <- add_topography(sf_for, dem = dem)
-  sf_for <- check_topography(sf_for, missing_action = "filter", verbose = verbose)
+  sf_for <- medfateland::add_topography(sf_for, dem = dem)
+  sf_for <- medfateland::check_topography(sf_for, missing_action = "filter", verbose = verbose)
   
   if(verbose) cli::cli_progress_step(paste0("Define land cover"))
   sf_for$land_cover_type <- "wildland"  
@@ -72,16 +74,20 @@ init_province_medfateland <- function(emf_dataset_path,
   sf_for <- medfateland::impute_forests(sf_for, sf_fi = sf_nfi, dem = dem, forest_map = forest_map, progress = FALSE)
   # Fill missing (missing tree or shrub codes should be dealt with before launching simulations)
   if(verbose) cli::cli_progress_step(paste0("Check missing forests"))
-  sf_for <- check_forests(sf_for, default_forest = emptyforest(), verbose = verbose) 
+  sf_for <- medfateland::check_forests(sf_for, default_forest = medfate::emptyforest(), verbose = verbose) 
   
   # ######################## 5. CORRECT FOREST OBJECTS STRUCTURES  #######################
   # ######### 5.1 CORRECT TREE HEIGHT
-  # height_map <- terra::rast("/home/rbalaguer/ForestDrought/emf/datasets/RemoteSensing/Spain/CanopyHeight/PNOA_1Cob_PROVINCES_ETRS89/PNOA_CanopyHeight_P15_ETRS89H30_25_cm.tif") # Same number as province
-  # # Agrregate
-  # height_map<- terra::aggregate(height_map, fact = 20, fun = "mean", na.rm = TRUE) 
-  # # Modify forest height
-  # sf_for <- modify_forest_structure(x = sf_for, structure_map =  height_map, 
-  #                                   variable = "mean_tree_height", map_var = "NDSM-Vegetacion-ETRS89-H29-0184-COB1", progress = T)
+  if(verbose) cli::cli_progress_step(paste0("Load vegetation height for province"))
+  height_map <- terra::rast(paste0(emf_dataset_path,"RemoteSensing/Spain/CanopyHeight/PNOA_1Cob_PROVINCES_ETRS89/PNOA_NDSMV_cm_P", 
+                                   province_code,"_ETRS89H", province_utm_fuse, "_25m.tif")) # Same number as province
+  # Agrregate
+  # height_map<- terra::aggregate(height_map, fact = 20, fun = "mean", na.rm = TRUE)
+  # Modify forest height
+  if(verbose) cli::cli_progress_step(paste0("Modify forest height"))
+  sf_for <- medfateland::modify_forest_structure(x = sf_for, structure_map =  height_map,
+                                    variable = "mean_tree_height", 
+                                    map_var = "NDSM-Vegetacion-ETRS89-H29-0184-COB1", progress = TRUE)
   # ######### 5.1 CORRECT ABOVEGORUND TREE BIOMASS
   # biomass_map <- terra::rast("/home/rbalaguer/ForestDrought/emf/datasets/RemoteSensing/Spain/CanopyBiomass/CanopyBiomass_Su2025/CanopyBiomass_2021.tif")
   # # Resample/Agrregate
@@ -99,9 +105,9 @@ init_province_medfateland <- function(emf_dataset_path,
   
   if(verbose) cli::cli_progress_step(paste0("Read soil data from SoilGrids2.0"))
   soilgrids_path = paste0(emf_dataset_path, "Soils/Global/SoilGrids/Spain/")
-  sf_for <- add_soilgrids(sf_for, soilgrids_path = soilgrids_path, progress = verbose)
+  sf_for <- medfateland::add_soilgrids(sf_for, soilgrids_path = soilgrids_path, progress = verbose)
   if(verbose) cli::cli_progress_step(paste0("Check missing soil data"))
-  sf_for <- check_soils(sf_for,  missing_action = "default", 
+  sf_for <- medfateland::check_soils(sf_for,  missing_action = "default", 
                         default_values = c(clay = 25, sand = 25, bd = 1.5, rfc = 25))
   if(verbose) cli::cli_progress_done()
   
@@ -122,13 +128,13 @@ init_province_medfateland <- function(emf_dataset_path,
   # Bed rock in MEDFATE units
   depth_to_bedrock_mm <- bdticm*10
   # Modify soils
-  sf_for <- modify_soils(sf_for, soil_depth_map = soil_depth_mm, depth_to_bedrock_map = depth_to_bedrock_mm,
+  sf_for <- medfateland::modify_soils(sf_for, soil_depth_map = soil_depth_mm, depth_to_bedrock_map = depth_to_bedrock_mm,
                          progress = FALSE)
   
   return(list(sf = sf_for, r = r))
 }
 
-l <- init_province_medfateland(province_code = "02",
+l <- init_province_medfateland(province_code = "43",
                                province_utm_fuse = "30",
                                emf_dataset_path = "~/OneDrive/EMF_datasets/",
                                target_polygon  = NULL,
