@@ -9,6 +9,8 @@
 | Data source       | Data location    | Previous pipeline |
 |-------------------|------------------|-------------------|
 | PNOA MDT 25 m     |            `[emf_dataset_path]/Topography/Spain/PNOA_MDT25_PROVINCES_ETRS89/`    | |
+| MFE 1:25000       | `[emf_dataset_path]/ForestMaps/Spain/MFE25/`    | |
+| IFN for medfateland     | `[emf_dataset_path]/ForestInventories/IFN_medfateland/`    | `emf_ifn_medfateland` |
 | SoilGrids 2.0     |  `[emf_dataset_path]/Soils/Global/SoilGrids/`  | |
 | Soil depth data from Shangguan et al. (2017) | `[emf_dataset_path]/Soils/Global/SoilDepth_Shangguan2017/` | |
 

@@ -129,12 +129,12 @@ init_province_medfateland <- function(emf_dataset_path,
 }
 
 l <- init_province_medfateland(province_code = "02",
-                          province_utm_fuse = "30",
-                          emf_dataset_path = "~/OneDrive/EMF_datasets/",
-                          target_polygon  = NULL,
-                          ifn_imputation_source = "IFN4",
-                          res <- 1000, # Define spatial resolution (500m)
-                          crs_out <- "EPSG:25830")
+                               province_utm_fuse = "30",
+                               emf_dataset_path = "~/OneDrive/EMF_datasets/",
+                               target_polygon  = NULL,
+                               ifn_imputation_source = "IFN4",
+                               res <- 1000, # Define spatial resolution (500m)
+                               crs_out <- "EPSG:25830")
 
 
 
