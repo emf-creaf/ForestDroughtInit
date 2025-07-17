@@ -1,7 +1,32 @@
-# ForestDroughtInit
+# Initialisation of arbitrary polygons for medfateland
+
+## What the workflow does?
+
++ Creates `sf` objects and raster definitions to be used in simulations with package **medfateland** for a given province or a polygon within it.
+
+## Data dependencies
+
+| Data source       | Data location    | Previous pipeline |
+|-------------------|------------------|-------------------|
+| PNOA MDT 25 m     |            `[emf_dataset_path]/Topography/Spain/PNOA_MDT25_PROVINCES_ETRS89/`    | |
+| SoilGrids 2.0     |  `[emf_dataset_path]/Soils/Global/SoilGrids/`  | |
+| Soil depth data from Shangguan et al. (2017) | `[emf_dataset_path]/Soils/Global/SoilDepth_Shangguan2017/` | |
+
+## EMF R packages dependencies
+
+|  R package  |   Functionality provided  |
+|-------------|------------------|
+| **medfate** | Simulation control parameters |
+| **medfateland** | Landscape initialisation routines, simulation routines for testing |
+| **traits4models** | Dataset `SpParamsES` |
+| **IFNallometry** | Biomass calculation for structure correction |
+
+## Outputs
+
++ `sf` objects and raster masks ready for **medfateland** simulations for the target area.
+
 
 ## Steps
-
 
   1. Define target forested area: If defined using National Forest Map (MFE25), then it will match step 5.
   2. Define raster at desired resolution (e.g. 200m, 250m or 500 m, depending on computational resources) over the forested area.
