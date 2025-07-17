@@ -69,7 +69,7 @@ init_province_medfateland <- function(emf_dataset_path,
   
   if(verbose) cli::cli_progress_step(paste0("Forest imputation for ", nrow(sf_for) , " locations"))
   forest_map <- terra::vect(sf_mfe) # Vectorize forest map
-  sf_for <- medfateland::impute_forests(sf_for, sf_fi = sf_nfi, dem = dem, forest_map = forest_map, progress = verbose)
+  sf_for <- medfateland::impute_forests(sf_for, sf_fi = sf_nfi, dem = dem, forest_map = forest_map, progress = FALSE)
   # Fill missing (missing tree or shrub codes should be dealt with before launching simulations)
   if(verbose) cli::cli_progress_step(paste0("Check missing forests"))
   sf_for <- check_forests(sf_for, default_forest = emptyforest(), verbose = verbose) 
@@ -107,11 +107,11 @@ init_province_medfateland <- function(emf_dataset_path,
   
   if(verbose) cli::cli_progress_step(paste0("Modify soil depth using data from Shangguan et al. 2017"))
   # Censored soil depth (cm)
-  bdricm<- terra::rast("/home/rbalaguer/ForestDrought/emf/datasets/Soils/Global/SoilDepth_Shangguan2017/BDRICM_M_250m_ll.tif")
+  bdricm<- terra::rast(paste0(emf_dataset_path, "Soils/Global/SoilDepth_Shangguan2017/BDRICM_M_250m_ll.tif"))
   # Probability of bedrock within first 2m [0-100]
-  bdrlog <- terra::rast("/home/rbalaguer/ForestDrought/emf/datasets/Soils/Global/SoilDepth_Shangguan2017/BDRLOG_M_250m_ll.tif")
+  bdrlog <- terra::rast(paste0(emf_dataset_path, "Soils/Global/SoilDepth_Shangguan2017/BDRLOG_M_250m_ll.tif"))
   # Absolute depth to bedrock (cm)
-  bdticm <- terra::rast("/home/rbalaguer/ForestDrought/emf/datasets/Soils/Global/SoilDepth_Shangguan2017/BDTICM_M_250m_ll.tif")
+  bdticm <- terra::rast(paste0(emf_dataset_path, "Soils/Global/SoilDepth_Shangguan2017/BDTICM_M_250m_ll.tif"))
   x_vect <- terra::vect(sf::st_transform(sf::st_geometry(sf_for), terra::crs(bdricm)))
   x_ext <- terra::ext(x_vect)
   bdricm <- terra::crop(bdricm, x_ext, snap = "out")
@@ -123,17 +123,17 @@ init_province_medfateland <- function(emf_dataset_path,
   depth_to_bedrock_mm <- bdticm*10
   # Modify soils
   sf_for <- modify_soils(sf_for, soil_depth_map = soil_depth_mm, depth_to_bedrock_map = depth_to_bedrock_mm,
-                         progress = T)
+                         progress = FALSE)
   
   return(list(sf = sf_for, r = r))
 }
 
-l <- init_province_medfateland(province_code = "01",
+l <- init_province_medfateland(province_code = "02",
                           province_utm_fuse = "30",
                           emf_dataset_path = "~/OneDrive/EMF_datasets/",
                           target_polygon  = NULL,
                           ifn_imputation_source = "IFN4",
-                          res <- 500, # Define spatial resolution (500m)
+                          res <- 1000, # Define spatial resolution (500m)
                           crs_out <- "EPSG:25830")
 
 
