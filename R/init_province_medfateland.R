@@ -11,6 +11,7 @@
 #' @param crs_out String of the CRS 
 #' @param height_correction Logical flag to try tree height correction
 #' @param biomass_correction Logical flag to try tree biomass_correction
+#' @param test_plots Logical flag to produce test plots
 #' @param verbose Logical flag for console output
 #' 
 #' @author Rodrigo Balaguer Romano
@@ -29,6 +30,7 @@ init_province_medfateland <- function(emf_dataset_path,
                                       height_correction = TRUE,
                                       biomass_correction = TRUE,
                                       soil_correction = TRUE,
+                                      test_plots = TRUE,
                                       verbose = TRUE) {
   province_code <- as.character(province_code)
   province_code <- match.arg(province_code ,c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
@@ -76,7 +78,10 @@ init_province_medfateland <- function(emf_dataset_path,
   if(verbose) cli::cli_progress_step(paste0("Add topography to sf (and filter locations with missing topography)"))
   sf_for <- medfateland::add_topography(sf_for, dem = dem) |>
     medfateland::check_topography(sf_for, missing_action = "filter", verbose = FALSE)
-  
+  if(test_plots) {
+    ggplot2::ggsave(paste0("plots/elevation_", province_code, ".png"),
+                    medfateland::plot_variable(sf_for, "elevation", r = r_for))
+  }
   if(verbose) cli::cli_progress_step(paste0("Define land cover for ", nrow(sf_for) , " locations"))
   sf_for$land_cover_type <- "wildland"  
   
@@ -92,6 +97,7 @@ init_province_medfateland <- function(emf_dataset_path,
   if(verbose) cli::cli_progress_step(paste0("Forest imputation for ", nrow(sf_for) , " locations"))
   forest_map <- terra::vect(sf_mfe)
   sf_for <- medfateland::impute_forests(sf_for, sf_fi = sf_nfi, dem = dem, forest_map = forest_map, progress = FALSE)
+
   # Fill missing (missing tree or shrub codes should be dealt with before launching simulations)
   if(verbose) cli::cli_progress_step(paste0("Check missing forests"))
   sf_for <- medfateland::check_forests(sf_for, default_forest = medfate::emptyforest(), verbose = verbose) 
@@ -148,13 +154,18 @@ init_province_medfateland <- function(emf_dataset_path,
     sf_for <- medfateland::modify_soils(sf_for, soil_depth_map = soil_depth_mm, depth_to_bedrock_map = depth_to_bedrock_mm,
                                         progress = FALSE)
   }
+  
+  if(test_plots) {
+    ggplot2::ggsave(paste0("plots/basal_area_", province_code, ".png"),
+                    medfateland::plot_variable(sf_for, "basal_area", r = r_for))
+  }
   r_for$value <- TRUE
   return(list(sf = sf_for, r = r_for))
 }
 
 provinces <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
                                             as.character(11:50))
-res <- 2000
+res <- 1000
 emf_dataset_path <- "~/OneDrive/EMF_datasets/"
 for(province_code in provinces) {
   cli::cli_h1(paste0("Processing province ", province_code))
