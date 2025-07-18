@@ -1,4 +1,6 @@
-#' Initializes inputs for a target area for simulations with medfateland 
+#' Initialize spanish forested landscape
+#' 
+#' Initializes inputs for a target forested area for simulations with medfateland 
 #' The target should be contained (or include the whole of) a Spanish province
 #'
 #' @param emf_dataset_path Path to the dataset folder
@@ -10,7 +12,10 @@
 #' @param height_correction Logical flag to try tree height correction
 #' @param biomass_correction Logical flag to try tree biomass_correction
 #' @param verbose Logical flag for console output
-#'
+#' 
+#' @author Rodrigo Balaguer Romano
+#' @author Miquel De Cáceres
+#' 
 #' @returns A list composed of a sf object for medfateland and a raster definition
 #' @export
 #'
@@ -75,7 +80,7 @@ init_province_medfateland <- function(emf_dataset_path,
   if(verbose) cli::cli_progress_step(paste0("Define land cover for ", nrow(sf_for) , " locations"))
   sf_for$land_cover_type <- "wildland"  
   
-  if(verbose) cli::cli_progress_step(paste0("Load IFN imputation source"))
+  if(verbose) cli::cli_progress_step(paste0("Load ", ifn_imputation_source, " imputation source"))
   ifn_file <- paste0(emf_dataset_path, "ForestInventories/IFN_medfateland/medfateland_",
                      tolower(ifn_imputation_source), "_",province_code,"_soilmod_WGS84.rds")
   if(!file.exists(ifn_file)) cli::cli_abort(paste0("IFN imputation source file '", ifn_file, "' does not exist!"))
@@ -150,13 +155,19 @@ init_province_medfateland <- function(emf_dataset_path,
 provinces <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
                                             as.character(11:50))
 res <- 2000
-
+emf_dataset_path <- "~/OneDrive/EMF_datasets/"
 for(province_code in provinces) {
+  cli::cli_h1(paste0("Processing province ", province_code))
+  ifn_imputation_source <- "IFN4"
+  ifn_file <- paste0(emf_dataset_path, "ForestInventories/IFN_medfateland/medfateland_",
+                     tolower(ifn_imputation_source), "_",province_code,"_soilmod_WGS84.rds")
+  if(!file.exists(ifn_file)) ifn_imputation_source = "IFN3"
   l <- init_province_medfateland(province_code = province_code,
-                                 emf_dataset_path = "~/OneDrive/EMF_datasets/",
+                                 emf_dataset_path = emf_dataset_path,
                                  res = res,
+                                 ifn_imputation_source = ifn_imputation_source,
                                  height_correction = FALSE)
   
   saveRDS(l$sf, paste0("data/medfateland_", province_code, "_sf.rds"))
-  terra::writeRaster(l$r, paste0("data/medfateland_", province_code, "_raster.tif"))
+  terra::writeRaster(l$r, paste0("data/medfateland_", province_code, "_raster.tif"), overwrite = TRUE)
 }
