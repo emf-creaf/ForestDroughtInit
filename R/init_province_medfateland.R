@@ -66,9 +66,7 @@ init_province_medfateland <- function(emf_dataset_path,
       target_polygon <- target_polygon |>
         sf::st_transform(target_polygon, crs = sf::st_crs(crs_out))
     }
-  } else {
-    # TODO check if target polygon is contained within province limits
-  }
+  } 
   if(verbose) cli::cli_progress_step(paste0("Defining buffer zone"))
   target_buffer <- sf::st_buffer(target_polygon, buffer_dist)
   
