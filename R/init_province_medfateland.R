@@ -66,9 +66,14 @@ init_province_medfateland <- function(emf_dataset_path,
       target_polygon <- target_polygon |>
         sf::st_transform(target_polygon, crs = sf::st_crs(crs_out))
     }
-  } 
-  if(verbose) cli::cli_progress_step(paste0("Defining buffer zone"))
-  target_buffer <- sf::st_buffer(target_polygon, buffer_dist)
+  } else if(sf::st_crs(target_polygon)!= sf::st_crs(crs_out)) {
+    if(verbose) cli::cli_progress_step(paste0("Transforming target polygon to ", crs_out))
+    target_polygon <- target_polygon |>
+      sf::st_transform(crs_out)
+  }
+  if(verbose) cli::cli_li(paste0("Target area: ", round(sf::st_area(target_polygon)/10000)," ha"))
+  target_buffer <- sf::st_buffer(target_polygon, dist = buffer_dist)
+  if(verbose) cli::cli_li(paste0("Buffer zone area: ", round(sf::st_area(target_buffer)/10000)," ha"))
   
   if(verbose) cli::cli_progress_step(paste0("Defining touched provinces"))
   touched_provinces <- sf::st_intersection(sf_all_provinces, target_buffer)$Codigo
@@ -77,7 +82,7 @@ init_province_medfateland <- function(emf_dataset_path,
   sf_mfe_target_list <-  vector("list", length(touched_provinces))
   for(i in 1:length(touched_provinces)) {
     prov <- touched_provinces[i]
-    if(verbose) cli::cli_progress_step(paste0("Adding MFE polygons from province ", prov))
+    if(verbose) cli::cli_progress_step(paste0("Reading MFE polygons from province ", prov))
     sf_mfe_prov <- sf::read_sf(paste0(emf_dataset_path, "ForestMaps/Spain/MFE25/MFE_PROVINCES/MFE_", prov, "_class.gpkg")) |>
       sf::st_make_valid()
     int_buffer <- sf::st_intersection(sf_mfe_prov, target_buffer) |>
@@ -86,6 +91,8 @@ init_province_medfateland <- function(emf_dataset_path,
     int_target <- sf::st_intersection(sf_mfe_prov, target_polygon) |>
       na.omit()
     sf_mfe_target_list[[i]] <- int_target[as.character(sf::st_geometry_type(int_target)) %in% c("POLYGON", "MULTIPOLYGON"), , drop = FALSE]
+    if(verbose) cli::cli_progress_step(paste0("Added ", nrow(int_buffer)," MFE polygons from province ", prov))
+    
   }
   rm(sf_mfe_prov)
   sf_mfe_target <- dplyr::bind_rows(sf_mfe_target_list)
