@@ -11,7 +11,7 @@ provinces <- sample(c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10"
 provinces <- provinces[-c(35, 38)]
 
 for(province_code in provinces) {
-  out_sf <- paste0("data/medfateland_", province_code, "_sf.rds")
+  out_sf <- paste0("data/medfateland_", province_code, "_sf_", res,"m.rds")
   if(!file.exists(out_sf)) {
     cli::cli_h1(paste0("Processing province ", province_code))
     ifn_imputation_source <- "IFN4"
@@ -28,11 +28,11 @@ for(province_code in provinces) {
     write_medfateland_raster(l, res)
     
     if(test_plots) {
-      ggplot2::ggsave(paste0("plots/elevation_", province_code, ".png"),
+      ggplot2::ggsave(paste0("plots/elevation_", province_code, "_", res, "m.png"),
                       medfateland::plot_variable(l$sf, "elevation", r = l$r))
-      ggplot2::ggsave(paste0("plots/mean_tree_height_", province_code, ".png"),
+      ggplot2::ggsave(paste0("plots/mean_tree_height_", province_code, "_", res, "m.png"),
                       medfateland::plot_variable(l$sf, "mean_tree_height", r = l$r))
-      ggplot2::ggsave(paste0("plots/basal_area_", province_code, ".png"),
+      ggplot2::ggsave(paste0("plots/basal_area_", province_code, "_", res, "m.png"),
                       medfateland::plot_variable(l$sf, "basal_area", r = l$r))
       
     }
