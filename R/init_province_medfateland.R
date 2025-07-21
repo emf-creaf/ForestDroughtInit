@@ -61,10 +61,11 @@ init_province_medfateland <- function(emf_dataset_path,
     target_polygon <- sf_all_provinces |>
       dplyr::filter(Codigo == province_code) |>
       sf::st_as_sfc()
-    # Transform CRS if necessary
+    # Perform union and transform CRS if necessary
     if(sf::st_crs(target_polygon) != sf::st_crs(crs_out)) {
       target_polygon <- target_polygon |>
-        sf::st_transform(target_polygon, crs = sf::st_crs(crs_out))
+        sf::st_union() |>
+        sf::st_transform(target_polygon, crs = sf::st_crs(crs_out)) 
     }
   } else if(sf::st_crs(target_polygon)!= sf::st_crs(crs_out)) {
     if(verbose) cli::cli_progress_step(paste0("Transforming target polygon to ", crs_out))

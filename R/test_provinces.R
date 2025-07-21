@@ -18,8 +18,7 @@ for(province_code in provinces) {
                                  emf_dataset_path = emf_dataset_path,
                                  res = res,
                                  buffer_dist = buffer_dist,
-                                 ifn_imputation_source = ifn_imputation_source,
-                                 height_correction = TRUE)
+                                 ifn_imputation_source = ifn_imputation_source)
   
   saveRDS(l$sf, paste0("data/medfateland_", province_code, "_sf.rds"))
   terra::writeRaster(l$r, paste0("data/medfateland_", province_code, "_raster.tif"), overwrite = TRUE)
