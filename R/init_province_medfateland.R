@@ -103,7 +103,7 @@ init_province_medfateland <- function(emf_dataset_path,
   sf_mfe_buffer <- dplyr::bind_rows(sf_mfe_buffer_list)
   rm(sf_mfe_buffer_list)
   rm(sf_mfe_target_list)
-  
+  gc()
   sf_mfe_target_vect <- terra::vect(sf_mfe_target)
   if(verbose) cli::cli_progress_step(paste0("Rasterize forest areas at ", res ,"m resolution"))
   r_for <-terra::rast(terra::ext(sf_mfe_target_vect), resolution = c(res,res), crs = crs_out)
