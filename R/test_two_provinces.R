@@ -1,6 +1,6 @@
 source("R/init_province_medfateland.R")
 
-res <- 2000
+res <- 500
 buffer_dist <- 50
 emf_dataset_path <- "~/datasets/"
 
