@@ -1,4 +1,5 @@
 source("R/init_province_medfateland.R")
+source("R/write_medfateland_objects.R")
 
 res <- 1000
 buffer_dist <- 50000
@@ -23,8 +24,8 @@ for(province_code in provinces) {
                                    buffer_dist = buffer_dist,
                                    ifn_imputation_source = ifn_imputation_source)
     
-    saveRDS(l$sf, out_sf)
-    terra::writeRaster(l$r, paste0("data/medfateland_", province_code, "_raster.tif"), overwrite = TRUE)
+    write_medfateland_object(l, res)
+    write_medfateland_raster(l, res)
     
     if(test_plots) {
       ggplot2::ggsave(paste0("plots/elevation_", province_code, ".png"),
