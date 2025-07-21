@@ -1,14 +1,17 @@
 source("R/init_province_medfateland.R")
 source("R/write_medfateland_objects.R")
 
-res <- 1000
+res <- 500
 buffer_dist <- 50000
 emf_dataset_path <- "~/datasets/"
 test_plots <- TRUE
 
+# fail (IFNallometry):
+failed <- c()
 provinces <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
                as.character(11:50))
-provinces <- sample(provinces[-c(35, 38)])
+provinces <- provinces[-c(35, 38, failed)]
+provinces <- sample(provinces)
 
 for(province_code in provinces) {
   out_sf <- paste0("data/medfateland_", province_code, "_sf_", res,"m.rds")

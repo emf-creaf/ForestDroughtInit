@@ -149,7 +149,7 @@ init_province_medfateland <- function(emf_dataset_path,
   sf_nfi <- dplyr::bind_rows(sf_nfi_list) |>
     sf::st_as_sf() |>
     medfateland::check_topography(missing_action = "filter", verbose = FALSE)|>
-    medfateland::check_forests(missing_action = "filter", verbose = FALSE)
+    medfateland::check_forests(missing_action = "filter", SpParams = traits4models::SpParamsES, verbose = FALSE)
   
   if(verbose) cli::cli_progress_step(paste0("Forest imputation for ", nrow(sf_for) , " locations from ", nrow(sf_nfi), " forest plots"))
   forest_map <- terra::vect(sf_mfe_buffer)
