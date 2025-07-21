@@ -6,9 +6,9 @@ buffer_dist <- 50000
 emf_dataset_path <- "~/datasets/"
 test_plots <- TRUE
 
-provinces <- sample(c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
-               as.character(11:50)))
-provinces <- provinces[-c(35, 38)]
+provinces <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
+               as.character(11:50))
+provinces <- sample(provinces[-c(35, 38)])
 
 for(province_code in provinces) {
   out_sf <- paste0("data/medfateland_", province_code, "_sf_", res,"m.rds")
