@@ -70,7 +70,6 @@ init_province_medfateland <- function(emf_dataset_path,
     sf::st_as_sf(for_poly)
   sf_for <- sf_for[,"geometry", drop = FALSE]
   rm(for_poly)
-  gc()
   if(verbose) cli::cli_progress_step(paste0("Load DEM for province ", province_code))
   dem <- terra::rast(paste0(emf_dataset_path, "Topography/Spain/PNOA_MDT25_PROVINCES_ETRS89/PNOA_MDT25_P", 
                             province_code ,"_ETRS89_H", 
@@ -94,13 +93,13 @@ init_province_medfateland <- function(emf_dataset_path,
     medfateland::check_topography(missing_action = "filter", verbose = FALSE)|>
     medfateland::check_forests(missing_action = "filter", verbose = FALSE)
   
-  if(verbose) cli::cli_progress_step(paste0("Forest imputation for ", nrow(sf_for) , " locations"))
+  if(verbose) cli::cli_progress_step(paste0("Forest imputation for ", nrow(sf_for) , " locations from ", nrow(sf_nfi), " forest plots"))
   forest_map <- terra::vect(sf_mfe)
   sf_for <- medfateland::impute_forests(sf_for, sf_fi = sf_nfi, dem = dem, forest_map = forest_map, progress = FALSE)
 
   # Fill missing (missing tree or shrub codes should be dealt with before launching simulations)
   if(verbose) cli::cli_progress_step(paste0("Check missing forests"))
-  sf_for <- medfateland::check_forests(sf_for, default_forest = medfate::emptyforest(), verbose = verbose) 
+  sf_for <- medfateland::check_forests(sf_for, default_forest = medfate::emptyforest(), verbose = FALSE) 
   
   if(height_correction) {
     if(verbose) cli::cli_progress_step(paste0("Load vegetation height for province"))
@@ -109,8 +108,8 @@ init_province_medfateland <- function(emf_dataset_path,
     # Modify forest height
     if(verbose) cli::cli_progress_step(paste0("Correct tree height"))
     sf_for <- medfateland::modify_forest_structure(x = sf_for, structure_map =  height_map,
-                                                   variable = "mean_tree_height",
-                                                   map_var = "NDSM-Vegetacion-ETRS89-H29-0184-COB1", progress = verbose)
+                                                   variable = "mean_tree_height", map_var = names(height_map)[1], 
+                                                   progress = FALSE)
   }
   
   if(biomass_correction) {
@@ -122,12 +121,12 @@ init_province_medfateland <- function(emf_dataset_path,
                                                    biomass_function = IFNallometry::IFNbiomass_medfate,
                                                    biomass_arguments = list(fraction = "aboveground",level = "stand"),
                                                    SpParams = traits4models::SpParamsES,
-                                                   progress = verbose)
+                                                   progress = FALSE)
   }
   
   if(verbose) cli::cli_progress_step(paste0("Read soil data from SoilGrids2.0 for ", nrow(sf_for), " locations."))
   soilgrids_path = paste0(emf_dataset_path, "Soils/Global/SoilGrids/Spain/")
-  sf_for <- medfateland::add_soilgrids(sf_for, soilgrids_path = soilgrids_path, progress = verbose)
+  sf_for <- medfateland::add_soilgrids(sf_for, soilgrids_path = soilgrids_path, progress = FALSE)
   if(verbose) cli::cli_progress_step(paste0("Fill missing soil data with defaults"))
   sf_for <- medfateland::check_soils(sf_for,  missing_action = "default", 
                         default_values = c(clay = 25, sand = 25, bd = 1.5, rfc = 25), verbose = FALSE)
@@ -156,6 +155,8 @@ init_province_medfateland <- function(emf_dataset_path,
   }
   
   if(test_plots) {
+    ggplot2::ggsave(paste0("plots/mean_tree_height_", province_code, ".png"),
+                    medfateland::plot_variable(sf_for, "mean_tree_height", r = r_for))
     ggplot2::ggsave(paste0("plots/basal_area_", province_code, ".png"),
                     medfateland::plot_variable(sf_for, "basal_area", r = r_for))
   }
@@ -163,9 +164,12 @@ init_province_medfateland <- function(emf_dataset_path,
   return(list(sf = sf_for, r = r_for))
 }
 
+# FAIL PROVINCES: 7, 9 (IFN allometry issue)
 provinces <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
                                             as.character(11:50))
-res <- 1000
+# provinces <- c("01",
+#                                             as.character(11:50))
+res <- 500
 emf_dataset_path <- "~/OneDrive/EMF_datasets/"
 for(province_code in provinces) {
   cli::cli_h1(paste0("Processing province ", province_code))
@@ -177,7 +181,7 @@ for(province_code in provinces) {
                                  emf_dataset_path = emf_dataset_path,
                                  res = res,
                                  ifn_imputation_source = ifn_imputation_source,
-                                 height_correction = FALSE)
+                                 height_correction = TRUE)
   
   saveRDS(l$sf, paste0("data/medfateland_", province_code, "_sf.rds"))
   terra::writeRaster(l$r, paste0("data/medfateland_", province_code, "_raster.tif"), overwrite = TRUE)
