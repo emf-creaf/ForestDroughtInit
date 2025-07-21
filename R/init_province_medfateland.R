@@ -55,7 +55,7 @@ init_province_medfateland <- function(emf_dataset_path,
   sf_all_provinces <- sf::read_sf(paste0(emf_dataset_path, "PoliticalBoundaries/Spain/Provincias_ETRS89_30N/Provincias_ETRS89_30N.gpkg"))
   sf_all_provinces <- sf::st_make_valid(sf_all_provinces)
 
-    # If target polygon not supplied, use the whole province
+  # If target polygon not supplied, use the whole province
   if(is.null(target_polygon)) {
     if(verbose) cli::cli_progress_step(paste0("Setting province ", province_code," as target polygon"))
     target_polygon <- sf_all_provinces |>
@@ -133,7 +133,7 @@ init_province_medfateland <- function(emf_dataset_path,
   for(i in 1:length(touched_provinces)) {
     prov <- touched_provinces[i]
     ifn_file <- paste0(emf_dataset_path, "ForestInventories/IFN_medfateland/medfateland_",
-                       tolower(ifn_imputation_source), "_",province_code,"_soilmod_WGS84.rds")
+                       tolower(ifn_imputation_source), "_",prov,"_soilmod_WGS84.rds")
     if(file.exists(ifn_file))  {
       sf_nfi_prov <- readRDS(ifn_file)|>
         sf::st_as_sf() |>
