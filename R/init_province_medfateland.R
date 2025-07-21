@@ -54,6 +54,7 @@ init_province_medfateland <- function(emf_dataset_path,
 
   sf_all_provinces <- sf::read_sf(paste0(emf_dataset_path, "PoliticalBoundaries/Spain/Provincias_ETRS89_30N/Provincias_ETRS89_30N.gpkg"))
   sf_all_provinces <- sf::st_make_valid(sf_all_provinces)
+  sf_all_provinces <- sf_all_provinces[1:50, ] # Exclude ceuta y melilla
 
   # If target polygon not supplied, use the whole province
   if(is.null(target_polygon)) {
