@@ -6,105 +6,163 @@
 #' @param emf_dataset_path Path to the dataset folder
 #' @param province_code String with the code of the province containing the target polygon
 #' @param target_polygon Target polygon for the study area. If missing the whole province is taken
+#' @param buffer_dist Distance (in m) used for defining a buffer from which information can be drawn
 #' @param ifn_imputation_source String indicating the forest inventory version to use in forest stand imputation ("IFN2", "IFN3" or "IFN4")
-#' @param res Spatial resolution (in m) of the study area.
+#' @param res Spatial resolution (in m) of the raster definition.
 #' @param crs_out String of the CRS 
 #' @param height_correction Logical flag to try tree height correction
 #' @param biomass_correction Logical flag to try tree biomass_correction
-#' @param test_plots Logical flag to produce test plots
+#' @param soil_correction Logical flag to try soil depth and rock fragment content correction
 #' @param verbose Logical flag for console output
 #' 
 #' @author Rodrigo Balaguer Romano
 #' @author Miquel De Cáceres
 #' 
-#' @returns A list composed of a sf object for medfateland and a raster definition
+#' @returns A list composed of a sf object suitable for medfateland and a terra raster definition
 #' @export
 #'
 #' @examples
 init_province_medfateland <- function(emf_dataset_path,
-                                      province_code,
+                                      province_code = NULL,
                                       target_polygon  = NULL,
+                                      buffer_dist = 50000,
                                       ifn_imputation_source = "IFN4",
                                       res = 500, 
                                       crs_out = "EPSG:25830", 
                                       height_correction = TRUE,
                                       biomass_correction = TRUE,
                                       soil_correction = TRUE,
-                                      test_plots = TRUE,
                                       verbose = TRUE) {
-  province_code <- as.character(province_code)
-  province_code <- match.arg(province_code ,c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
-                                              as.character(11:50)))
-  province_utm_fuse <- "30" # Peninsular spain
-  if(province_code %in% c(35, 38)) province_utm_fuse <- "28" #Canarias
+  provinces <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
+                 as.character(11:50))
+  province_utm_fuses <- rep("30", 50) # Peninsular spain
+  province_utm_fuses[c(35, 38)] <- "28" #Canarias
   
-  if(!is.numeric(res)) cli::cli_abort("`res` should be numeric")
 
-  if(verbose) cli::cli_progress_step(paste0("Read MFE25 for province ", province_code))
-  sf_mfe <- sf::read_sf(paste0(emf_dataset_path, "ForestMaps/Spain/MFE25/MFE_PROVINCES/MFE_", province_code, "_class.gpkg"))
-  sf_mfe <- sf::st_make_valid(sf_mfe)
-  # If target polygon not supplied, use the whole province
+  # Check function inputs 
+  if(!is.null(province_code)) {
+    province_code <- as.character(province_code)
+    province_code <- match.arg(province_code, provinces)
+  } else if(is.null(target_polygon)) {
+    cli::cli_abort("You must specify either a province or a target polygon")
+  }
+  if(!is.numeric(buffer_dist)) cli::cli_abort("`buffer_dist` should be numeric")
+  if(!is.numeric(res)) cli::cli_abort("`res` should be numeric")
+  if(!is.character(crs_out)) cli::cli_abort("`crs_out` should be a string")
+  ifn_imputation_source <- toupper(ifn_imputation_source)
+  ifn_imputation_source <- match.arg(ifn_imputation_source, c("IFN2", "IFN3", "IFN4"))
+
+  sf_all_provinces <- sf::read_sf(paste0(emf_dataset_path, "PoliticalBoundaries/Spain/Provincias_ETRS89_30N/Provincias_ETRS89_30N.gpkg"))
+  sf_all_provinces <- sf::st_make_valid(sf_all_provinces)
+
+    # If target polygon not supplied, use the whole province
   if(is.null(target_polygon)) {
-    if(verbose) cli::cli_progress_step("Setting whole province as target polygon")
-    sf_all_provinces <- sf::read_sf(paste0(emf_dataset_path, "PoliticalBoundaries/Spain/Provincias_ETRS89_30N/Provincias_ETRS89_30N.gpkg"))
-    sf_all_provinces <- sf::st_make_valid(sf_all_provinces)
+    if(verbose) cli::cli_progress_step(paste0("Setting province ", province_code," as target polygon"))
     target_polygon <- sf_all_provinces |>
       dplyr::filter(Codigo == province_code) |>
       sf::st_as_sfc()
     # Transform CRS if necessary
-    if(sf::st_crs(target_polygon) != sf::st_crs(sf_mfe)) {
+    if(sf::st_crs(target_polygon) != sf::st_crs(crs_out)) {
       target_polygon <- target_polygon |>
-        sf::st_transform(target_polygon, crs = sf::st_crs(sf_mfe))
+        sf::st_transform(target_polygon, crs = sf::st_crs(crs_out))
     }
   } else {
     # TODO check if target polygon is contained within province limits
   }
-  if(verbose) cli::cli_progress_step("Crop forests within target polygon limits")
-  for_poly <- sf::st_intersection(sf_mfe, target_polygon) |>
-    na.omit() |> # Clean NA locations to just leave FOREST AREAS as a spatial vector
-    terra::vect()
-  if(verbose) cli::cli_progress_step(paste0("Rasterize forest areas at ", res ,"m resolution"))
-  r_for <-terra::rast(terra::ext(for_poly), resolution = c(res,res), crs = crs_out)
-  if(verbose) cli::cli_progress_step(paste0("Create sf object with forest locations at pixel locations"))
-  sf_for <- terra::intersect(terra::as.points(r_for), for_poly) |>
-    sf::st_as_sf(for_poly)
-  sf_for <- sf_for[,"geometry", drop = FALSE]
-  rm(for_poly)
-  if(verbose) cli::cli_progress_step(paste0("Load DEM for province ", province_code))
-  dem <- terra::rast(paste0(emf_dataset_path, "Topography/Spain/PNOA_MDT25_PROVINCES_ETRS89/PNOA_MDT25_P", 
-                            province_code ,"_ETRS89_H", 
-                            province_utm_fuse, ".tif")) # Same number as province
-  if(verbose) cli::cli_progress_step(paste0("Add topography to sf (and filter locations with missing topography)"))
-  sf_for <- medfateland::add_topography(sf_for, dem = dem) |>
-    medfateland::check_topography(sf_for, missing_action = "filter", verbose = FALSE)
-  if(test_plots) {
-    ggplot2::ggsave(paste0("plots/elevation_", province_code, ".png"),
-                    medfateland::plot_variable(sf_for, "elevation", r = r_for))
+  if(verbose) cli::cli_progress_step(paste0("Defining buffer zone"))
+  target_buffer <- sf::st_buffer(target_polygon, buffer_dist)
+  
+  if(verbose) cli::cli_progress_step(paste0("Defining touched provinces"))
+  touched_provinces <- sf::st_intersection(sf_all_provinces, target_buffer)$Codigo
+
+  sf_mfe_buffer_list <- vector("list", length(touched_provinces))
+  sf_mfe_target_list <-  vector("list", length(touched_provinces))
+  for(i in 1:length(touched_provinces)) {
+    prov <- touched_provinces[i]
+    if(verbose) cli::cli_progress_step(paste0("Adding MFE polygons from province ", prov))
+    sf_mfe_prov <- sf::read_sf(paste0(emf_dataset_path, "ForestMaps/Spain/MFE25/MFE_PROVINCES/MFE_", prov, "_class.gpkg")) |>
+      sf::st_make_valid()
+    int_buffer <- sf::st_intersection(sf_mfe_prov, target_buffer) |>
+      na.omit()
+    sf_mfe_buffer_list[[i]] <- int_buffer[as.character(sf::st_geometry_type(int_buffer)) %in% c("POLYGON", "MULTIPOLYGON"), , drop = FALSE]
+    int_target <- sf::st_intersection(sf_mfe_prov, target_polygon) |>
+      na.omit()
+    sf_mfe_target_list[[i]] <- int_target[as.character(sf::st_geometry_type(int_target)) %in% c("POLYGON", "MULTIPOLYGON"), , drop = FALSE]
   }
+  rm(sf_mfe_prov)
+  sf_mfe_target <- dplyr::bind_rows(sf_mfe_target_list)
+  sf_mfe_buffer <- dplyr::bind_rows(sf_mfe_buffer_list)
+  rm(sf_mfe_buffer_list)
+  rm(sf_mfe_target_list)
+  
+  sf_mfe_target_vect <- terra::vect(sf_mfe_target)
+  if(verbose) cli::cli_progress_step(paste0("Rasterize forest areas at ", res ,"m resolution"))
+  r_for <-terra::rast(terra::ext(sf_mfe_target_vect), resolution = c(res,res), crs = crs_out)
+  if(verbose) cli::cli_progress_step(paste0("Create sf object with forest locations at pixel locations"))
+  sf_for <- terra::intersect(terra::as.points(r_for), sf_mfe_target_vect) |>
+    sf::st_as_sf()
+  sf_for <- sf_for[,"geometry", drop = FALSE]
+  rm(sf_mfe_target_vect)
+  if(verbose) cli::cli_progress_step(paste0("Add topography to sf (and filter locations with missing topography)"))
+  dem <- NULL
+  for(prov in touched_provinces) {
+    dem_prov <- terra::rast(paste0(emf_dataset_path, "Topography/Spain/PNOA_MDT25_PROVINCES_ETRS89/PNOA_MDT25_P", 
+                              prov ,"_ETRS89_H", 
+                              province_utm_fuses[as.numeric(prov)], ".tif")) # Same number as province
+    sf_for <- medfateland::add_topography(sf_for, dem = dem_prov, progress = FALSE)
+    if(is.null(dem)) {
+      dem <- dem_prov
+    } else {
+      dem <- terra::merge(dem, dem_prov)
+    }
+  }
+  rm(dem_prov)
+  sf_for <- sf_for |>
+    medfateland::check_topography(missing_action = "filter", verbose = FALSE)
+
   if(verbose) cli::cli_progress_step(paste0("Define land cover for ", nrow(sf_for) , " locations"))
   sf_for$land_cover_type <- "wildland"  
   
-  if(verbose) cli::cli_progress_step(paste0("Load ", ifn_imputation_source, " imputation source"))
-  ifn_file <- paste0(emf_dataset_path, "ForestInventories/IFN_medfateland/medfateland_",
-                     tolower(ifn_imputation_source), "_",province_code,"_soilmod_WGS84.rds")
-  if(!file.exists(ifn_file)) cli::cli_abort(paste0("IFN imputation source file '", ifn_file, "' does not exist!"))
-  sf_nfi <- readRDS(ifn_file) |>
+  if(verbose) cli::cli_progress_step(paste0("Load ", ifn_imputation_source, " imputation source(s)"))
+  sf_nfi_list <- vector("list", length(touched_provinces))
+  for(i in 1:length(touched_provinces)) {
+    prov <- touched_provinces[i]
+    ifn_file <- paste0(emf_dataset_path, "ForestInventories/IFN_medfateland/medfateland_",
+                       tolower(ifn_imputation_source), "_",province_code,"_soilmod_WGS84.rds")
+    if(file.exists(ifn_file))  {
+      sf_nfi_prov <- readRDS(ifn_file)|>
+        sf::st_as_sf() |>
+        sf::st_transform(crs_out)
+      sf_nfi_prov <- sf::st_intersection(sf_nfi_prov, target_buffer)
+      sf_nfi_list[[i]] <- sf_nfi_prov
+    }
+  }
+  sf_nfi <- dplyr::bind_rows(sf_nfi_list) |>
     sf::st_as_sf() |>
     medfateland::check_topography(missing_action = "filter", verbose = FALSE)|>
     medfateland::check_forests(missing_action = "filter", verbose = FALSE)
   
   if(verbose) cli::cli_progress_step(paste0("Forest imputation for ", nrow(sf_for) , " locations from ", nrow(sf_nfi), " forest plots"))
-  forest_map <- terra::vect(sf_mfe)
+  forest_map <- terra::vect(sf_mfe_buffer)
   sf_for <- medfateland::impute_forests(sf_for, sf_fi = sf_nfi, dem = dem, forest_map = forest_map, progress = FALSE)
-
+  rm(dem)
+  
   # Fill missing (missing tree or shrub codes should be dealt with before launching simulations)
   if(verbose) cli::cli_progress_step(paste0("Check missing forests"))
   sf_for <- medfateland::check_forests(sf_for, default_forest = medfate::emptyforest(), verbose = FALSE) 
   
   if(height_correction) {
-    if(verbose) cli::cli_progress_step(paste0("Load vegetation height for province"))
-    height_map <- terra::rast(paste0(emf_dataset_path,"RemoteSensing/Spain/CanopyHeight/PNOA_NDSMV_1Cob_PROVINCES_ETRS89/PNOA_NDSMV_cm_P",
-                                     province_code,"_ETRS89H", province_utm_fuse, "_25m.tif")) # Same number as province
+    if(verbose) cli::cli_progress_step(paste0("Load vegetation height map"))
+    height_map <- NULL
+    for(i in 1:length(touched_provinces)) {
+      height_map_prov <- terra::rast(paste0(emf_dataset_path,"RemoteSensing/Spain/CanopyHeight/PNOA_NDSMV_1Cob_PROVINCES_ETRS89/PNOA_NDSMV_cm_P",
+                                       touched_provinces[i],"_ETRS89H", province_utm_fuses[as.numeric(touched_provinces[i])], "_25m.tif")) # Same number as province
+      if(is.null(height_map)) {
+        height_map <- height_map_prov
+      } else {
+        height_map <- terra::merge(height_map, height_map_prov)
+      }
+    }
     # Modify forest height
     if(verbose) cli::cli_progress_step(paste0("Correct tree height"))
     sf_for <- medfateland::modify_forest_structure(x = sf_for, structure_map =  height_map,
@@ -154,12 +212,6 @@ init_province_medfateland <- function(emf_dataset_path,
                                         progress = FALSE)
   }
   
-  if(test_plots) {
-    ggplot2::ggsave(paste0("plots/mean_tree_height_", province_code, ".png"),
-                    medfateland::plot_variable(sf_for, "mean_tree_height", r = r_for))
-    ggplot2::ggsave(paste0("plots/basal_area_", province_code, ".png"),
-                    medfateland::plot_variable(sf_for, "basal_area", r = r_for))
-  }
   r_for$value <- TRUE
   return(list(sf = sf_for, r = r_for))
 }
@@ -169,8 +221,10 @@ provinces <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
                                             as.character(11:50))
 # provinces <- c("01",
 #                                             as.character(11:50))
-res <- 500
+res <- 1000
+buffer_dist <- 50000
 emf_dataset_path <- "~/OneDrive/EMF_datasets/"
+test_plots <- TRUE
 for(province_code in provinces) {
   cli::cli_h1(paste0("Processing province ", province_code))
   ifn_imputation_source <- "IFN4"
@@ -180,9 +234,20 @@ for(province_code in provinces) {
   l <- init_province_medfateland(province_code = province_code,
                                  emf_dataset_path = emf_dataset_path,
                                  res = res,
+                                 buffer_dist = buffer_dist,
                                  ifn_imputation_source = ifn_imputation_source,
                                  height_correction = TRUE)
   
   saveRDS(l$sf, paste0("data/medfateland_", province_code, "_sf.rds"))
   terra::writeRaster(l$r, paste0("data/medfateland_", province_code, "_raster.tif"), overwrite = TRUE)
+  
+  if(test_plots) {
+    ggplot2::ggsave(paste0("plots/elevation_", province_code, ".png"),
+                    medfateland::plot_variable(l$sf, "elevation", r = l$r))
+    ggplot2::ggsave(paste0("plots/mean_tree_height_", province_code, ".png"),
+                    medfateland::plot_variable(l$sf, "mean_tree_height", r = l$r))
+    ggplot2::ggsave(paste0("plots/basal_area_", province_code, ".png"),
+                    medfateland::plot_variable(l$sf, "basal_area", r = l$r))
+    
+  }
 }
