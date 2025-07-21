@@ -2,8 +2,11 @@ source("R/init_province_medfateland.R")
 
 res <- 1000
 buffer_dist <- 50000
-emf_dataset_path <- "~/OneDrive/EMF_datasets/"
+emf_dataset_path <- "~/datasets/"
 test_plots <- TRUE
+
+provinces <- sample(c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
+               as.character(11:50)))
 
 for(province_code in provinces) {
   cli::cli_h1(paste0("Processing province ", province_code))

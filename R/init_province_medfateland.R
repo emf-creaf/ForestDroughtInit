@@ -71,9 +71,9 @@ init_province_medfateland <- function(emf_dataset_path,
     target_polygon <- target_polygon |>
       sf::st_transform(crs_out)
   }
-  if(verbose) cli::cli_li(paste0("Target area: ", round(sf::st_area(target_polygon)/10000)," ha"))
+  if(verbose) cli::cli_li(paste0("Target polygon area: ", round(sf::st_area(target_polygon)/10000)," ha"))
   target_buffer <- sf::st_buffer(target_polygon, dist = buffer_dist)
-  if(verbose) cli::cli_li(paste0("Buffer zone area: ", round(sf::st_area(target_buffer)/10000)," ha"))
+  if(verbose) cli::cli_li(paste0("Buffer zone area: ", round((sf::st_area(target_buffer) - sf::st_area(target_polygon))/10000)," ha"))
   
   if(verbose) cli::cli_progress_step(paste0("Defining touched provinces"))
   touched_provinces <- sf::st_intersection(sf_all_provinces, target_buffer)$Codigo
