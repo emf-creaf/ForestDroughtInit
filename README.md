@@ -11,8 +11,8 @@
 | Province limits   |     `[emf_dataset_path]/PoliticalBoundaries/Spain/Provincias_ETRS89_30N/`             | |
 | PNOA MDT 25 m     |            `[emf_dataset_path]/Topography/Spain/PNOA_MDT25_PROVINCES_ETRS89/`    | |
 | MFE 1:25000       | `[emf_dataset_path]/ForestMaps/Spain/MFE25/`    | |
-| PNOA Canopy height 25 m | `[emf_dataset_path]/RemoteSensing/Spain/CanopyHeight/`| |
-| Biomass in Iberian Peninsula (Su et al. 2025) | `[emf_dataset_path]/RemoteSensing/Spain/ForestBiomass/`| |
+| PNOA Canopy height 25 m | `[emf_dataset_path]/RemoteSensing/Spain/CanopyHeight/PNOA_NDSMV_1Cob_PROVINCES_ETRS89`| |
+| Biomass in Iberian Peninsula (Su et al. 2025) | `[emf_dataset_path]/RemoteSensing/Spain/ForestBiomass/ForestBiomass_Su2025`| |
 | IFN for medfateland     | `[emf_dataset_path]/ForestInventories/IFN_medfateland/`    | `emf_forestables_medfate` |
 | SoilGrids 2.0     |  `[emf_dataset_path]/Soils/Global/SoilGrids/`  | |
 | Soil depth data from Shangguan et al. (2017) | `[emf_dataset_path]/Soils/Global/SoilDepth_Shangguan2017/` | |
