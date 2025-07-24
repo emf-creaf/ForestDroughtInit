@@ -1,7 +1,6 @@
 source("R/init_province_medfateland.R")
-source("R/write_medfateland_objects.R")
 
-res <- 1000
+res <- 500
 buffer_dist <- 50000
 emf_dataset_path <- "~/datasets/"
 test_plots <- TRUE
@@ -12,6 +11,7 @@ provinces <- sample(provinces)
 
 for(province_code in provinces) {
   out_sf <- paste0("data/provinces_",res,"m/medfateland_", province_code, "_sf_", res,"m.rds")
+  output_tif <- paste0("data/provinces_", res, "m/medfateland_", province_code, "_raster_",res,"m.tif")
   if(!file.exists(out_sf)) {
     cli::cli_h1(paste0("Processing province ", province_code))
     ifn_imputation_source <- "IFN4"
@@ -36,9 +36,8 @@ for(province_code in provinces) {
                                      ifn_imputation_source = ifn_imputation_source)
     }
 
-    
-    write_medfateland_object(l, res)
-    write_medfateland_raster(l, res)
+    saveRDS(dplyr::as_tibble(l$sf), file = out_sf)
+    terra::writeRaster(l$r, filename=output_tif)
     
     if(test_plots) {
       ggplot2::ggsave(paste0("plots/elevation_", province_code, "_", res, "m.png"),

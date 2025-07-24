@@ -26,6 +26,7 @@
 init_province_medfateland <- function(emf_dataset_path,
                                       province_code = NULL,
                                       target_polygon  = NULL,
+                                      target_raster = NULL,
                                       buffer_dist = 50000,
                                       ifn_imputation_source = "IFN4",
                                       res = 500, 
@@ -49,7 +50,13 @@ init_province_medfateland <- function(emf_dataset_path,
     cli::cli_abort("You must specify either a province or a target polygon")
   }
   if(!is.numeric(buffer_dist)) cli::cli_abort("`buffer_dist` should be numeric")
-  if(!is.numeric(res)) cli::cli_abort("`res` should be numeric")
+  if(!is.null(target_raster)) {
+    res <- sqrt(prod(terra::res(target_raster)))
+    if(verbose) cli::cli_li(paste0("Target resolution from target raster: ", res," m"))
+  } else {
+    if(!is.numeric(res)) cli::cli_abort("`res` should be numeric")
+    if(verbose) cli::cli_li(paste0("Target resolution: ", res," m"))
+  }
   if(!is.character(crs_out)) cli::cli_abort("`crs_out` should be a string")
   ifn_imputation_source <- toupper(ifn_imputation_source)
   ifn_imputation_source <- match.arg(ifn_imputation_source, c("IFN2", "IFN3", "IFN4"))
@@ -60,7 +67,7 @@ init_province_medfateland <- function(emf_dataset_path,
 
   # If target polygon not supplied, use the whole province
   if(is.null(target_polygon)) {
-    if(verbose) cli::cli_progress_step(paste0("Setting province ", province_code," as target polygon"))
+    if(verbose) cli::cli_li(paste0("Set province ", province_code," as target polygon"))
     target_polygon <- sf_all_provinces |>
       dplyr::filter(Codigo == province_code) |>
       sf::st_as_sfc()
@@ -72,7 +79,6 @@ init_province_medfateland <- function(emf_dataset_path,
     target_polygon <- target_polygon |>
         sf::st_union()
     if(sf::st_crs(target_polygon) != sf::st_crs(crs_out)) {
-      if(verbose) cli::cli_progress_step(paste0("Transforming target polygon to ", crs_out))
       target_polygon <- target_polygon |>
         sf::st_transform(crs = sf::st_crs(crs_out)) 
     }
@@ -115,8 +121,12 @@ init_province_medfateland <- function(emf_dataset_path,
   rm(sf_mfe_target_list)
   gc()
   sf_mfe_target_vect <- terra::vect(sf_mfe_target)
-  if(verbose) cli::cli_progress_step(paste0("Rasterize forest areas at ", res ,"m resolution"))
-  r_for <-terra::rast(terra::ext(sf_mfe_target_vect), resolution = c(res,res), crs = crs_out)
+  if(is.null(target_raster)) {
+    if(verbose) cli::cli_progress_step(paste0("Rasterize forest areas at ", res ,"m resolution"))
+    r_for <-terra::rast(terra::ext(sf_mfe_target_vect), resolution = c(res,res), crs = crs_out)
+  } else {
+    r_for <- target_raster
+  }
   if(verbose) cli::cli_progress_step(paste0("Create sf object with forest locations at pixel locations"))
   sf_for <- terra::intersect(terra::as.points(r_for), sf_mfe_target_vect) |>
     sf::st_as_sf()
@@ -126,15 +136,11 @@ init_province_medfateland <- function(emf_dataset_path,
   
   if(verbose) cli::cli_progress_step(paste0("Add topography to sf (and filter locations with missing topography)"))
   dem <- NULL
-  dem_fact <- ceiling(res/25)
   for(prov in touched_provinces) {
     dem_prov <- terra::rast(paste0(emf_dataset_path, "Topography/Spain/PNOA_MDT25_PROVINCES_ETRS89/PNOA_MDT25_P", 
                               prov ,"_ETRS89_H", 
                               province_utm_fuses[as.numeric(prov)], ".tif")) # Same number as province
-    # Aggregate from 25 to the output resolution
-    if(spatial_aggregation) dem_prov <- terra::aggregate(dem_prov, fact = dem_fact, fun = "median", na.rm = TRUE)
-    sf_for <- medfateland::add_topography(sf_for, dem = dem_prov, progress = FALSE)
-    # Merge DEM for NFI imputation
+    # Merge DEM
     if(is.null(dem)) {
       dem <- dem_prov
     } else {
@@ -142,8 +148,16 @@ init_province_medfateland <- function(emf_dataset_path,
     }
   }
   rm(dem_prov)
-  sf_for <- sf_for |>
-    medfateland::check_topography(missing_action = "filter", verbose = FALSE)
+  
+  if(spatial_aggregation) { # Aggregate from 25 to the output resolution (finer DEM is used for imputation)
+    dem_fact <- ceiling(res/25)
+    dem_agg <- terra::aggregate(dem, fact = dem_fact, fun = "mean", na.rm = TRUE)
+    sf_for <- medfateland::add_topography(sf_for, dem = dem_agg, progress = FALSE) |>
+      medfateland::check_topography(missing_action = "filter", verbose = FALSE)
+  } else {
+    sf_for <- medfateland::add_topography(sf_for, dem = dem, progress = FALSE) |>
+      medfateland::check_topography(missing_action = "filter", verbose = FALSE)
+  }
 
   if(verbose) cli::cli_progress_step(paste0("Define land cover for ", nrow(sf_for) , " locations"))
   sf_for$land_cover_type <- "wildland"  
@@ -182,7 +196,7 @@ init_province_medfateland <- function(emf_dataset_path,
     height_fact  <- ceiling(res/25)
     for(i in 1:length(touched_provinces)) {
       height_map_prov <- terra::rast(paste0(emf_dataset_path,"RemoteSensing/Spain/CanopyHeight/PNOA_NDSMV_1Cob_PROVINCES_ETRS89/PNOA_NDSMV_cm_P",
-                                       touched_provinces[i],"_ETRS89H", province_utm_fuses[as.numeric(touched_provinces[i])], "_25m.tif")) 
+                                       touched_provinces[i],"_ETRS89H30_25m.tif")) 
       if(spatial_aggregation) height_map_prov <- terra::aggregate(height_map_prov, fact = height_fact, fun = "median", na.rm = TRUE)
       if(is.null(height_map)) {
         height_map <- height_map_prov
