@@ -10,6 +10,7 @@
 #' @param ifn_imputation_source String indicating the forest inventory version to use in forest stand imputation ("IFN2", "IFN3" or "IFN4")
 #' @param res Spatial resolution (in m) of the raster definition.
 #' @param crs_out String of the CRS 
+#' @param spatial_aggregation Performs aggregation (median) of DEM, height map and biomass map to the output raster resolution before using them.
 #' @param height_correction Logical flag to try tree height correction
 #' @param biomass_correction Logical flag to try tree biomass_correction
 #' @param soil_correction Logical flag to try soil depth and rock fragment content correction
@@ -29,6 +30,7 @@ init_province_medfateland <- function(emf_dataset_path,
                                       ifn_imputation_source = "IFN4",
                                       res = 500, 
                                       crs_out = "EPSG:25830", 
+                                      spatial_aggregation = TRUE,
                                       height_correction = TRUE,
                                       biomass_correction = TRUE,
                                       soil_correction = TRUE,
@@ -112,13 +114,19 @@ init_province_medfateland <- function(emf_dataset_path,
     sf::st_as_sf()
   sf_for <- sf_for[,"geometry", drop = FALSE]
   rm(sf_mfe_target_vect)
+  
+  
   if(verbose) cli::cli_progress_step(paste0("Add topography to sf (and filter locations with missing topography)"))
   dem <- NULL
+  dem_fact <- ceiling(res/25)
   for(prov in touched_provinces) {
     dem_prov <- terra::rast(paste0(emf_dataset_path, "Topography/Spain/PNOA_MDT25_PROVINCES_ETRS89/PNOA_MDT25_P", 
                               prov ,"_ETRS89_H", 
                               province_utm_fuses[as.numeric(prov)], ".tif")) # Same number as province
+    # Aggregate from 25 to the output resolution
+    if(spatial_aggregation) dem_prov <- terra::aggregate(dem_prov, fact = dem_fact, fun = "median", na.rm = TRUE)
     sf_for <- medfateland::add_topography(sf_for, dem = dem_prov, progress = FALSE)
+    # Merge DEM for NFI imputation
     if(is.null(dem)) {
       dem <- dem_prov
     } else {
@@ -155,7 +163,7 @@ init_province_medfateland <- function(emf_dataset_path,
   forest_map <- terra::vect(sf_mfe_buffer)
   sf_for <- medfateland::impute_forests(sf_for, sf_fi = sf_nfi, dem = dem, forest_map = forest_map, progress = FALSE)
   rm(dem)
-  
+
   # Fill missing (missing tree or shrub codes should be dealt with before launching simulations)
   if(verbose) cli::cli_progress_step(paste0("Check missing forests"))
   sf_for <- medfateland::check_forests(sf_for, default_forest = medfate::emptyforest(), verbose = FALSE) 
@@ -163,9 +171,11 @@ init_province_medfateland <- function(emf_dataset_path,
   if(height_correction) {
     if(verbose) cli::cli_progress_step(paste0("Load vegetation height map"))
     height_map <- NULL
+    height_fact  <- ceiling(res/25)
     for(i in 1:length(touched_provinces)) {
       height_map_prov <- terra::rast(paste0(emf_dataset_path,"RemoteSensing/Spain/CanopyHeight/PNOA_NDSMV_1Cob_PROVINCES_ETRS89/PNOA_NDSMV_cm_P",
-                                       touched_provinces[i],"_ETRS89H", province_utm_fuses[as.numeric(touched_provinces[i])], "_25m.tif")) # Same number as province
+                                       touched_provinces[i],"_ETRS89H", province_utm_fuses[as.numeric(touched_provinces[i])], "_25m.tif")) 
+      if(spatial_aggregation) height_map_prov <- terra::aggregate(height_map_prov, fact = height_fact, fun = "median", na.rm = TRUE)
       if(is.null(height_map)) {
         height_map <- height_map_prov
       } else {
@@ -182,6 +192,8 @@ init_province_medfateland <- function(emf_dataset_path,
   if(biomass_correction) {
     if(verbose) cli::cli_progress_step(paste0("Correct forest aboveground tree biomass"))
     biomass_map <- terra::rast(paste0(emf_dataset_path,"RemoteSensing/Spain/CanopyBiomass/CanopyBiomass_Su2025/CanopyBiomass_2021.tif"))
+    biomass_fact <- ceiling(res/50)
+    if(spatial_aggregation) biomass_map <- terra::aggregate(biomass_map, fact = biomass_fact, fun = "median", na.rm = TRUE)
     r_biomass_map <- terra::resample(biomass_map, r_for) # Change CRS
     sf_for <- medfateland::modify_forest_structure(x = sf_for, structure_map = r_biomass_map,
                                                    var = "aboveground_tree_biomass", map_var = "CanopyBiomass_2021",
