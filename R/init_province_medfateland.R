@@ -82,6 +82,10 @@ init_province_medfateland <- function(emf_dataset_path,
   if(verbose) cli::cli_li(paste0("Buffer zone area: ", round((sf::st_area(target_buffer) - sf::st_area(target_polygon))/10000)," ha"))
   
   if(verbose) cli::cli_progress_step(paste0("Defining touched provinces"))
+  if(sf::st_crs(sf_all_provinces)!=sf::st_crs(crs_out)) {
+    sf_all_provinces <- sf_all_provinces |>
+      sf::st_transform(crs = sf::st_crs(crs_out)) 
+  }
   touched_provinces <- sf::st_intersection(sf_all_provinces, target_buffer)$Codigo
 
   sf_mfe_buffer_list <- vector("list", length(touched_provinces))
@@ -91,6 +95,10 @@ init_province_medfateland <- function(emf_dataset_path,
     if(verbose) cli::cli_progress_step(paste0("Reading MFE polygons from province ", prov))
     sf_mfe_prov <- sf::read_sf(paste0(emf_dataset_path, "ForestMaps/Spain/MFE25/MFE_PROVINCES/MFE_", prov, "_class.gpkg")) |>
       sf::st_make_valid()
+    if(sf::st_crs(sf_mfe_prov)!= sf::st_crs(crs_out)) {
+      sf_mfe_prov <- sf_mfe_prov |>
+        sf::st_transform(crs = sf::st_crs(crs_out)) 
+    }
     int_buffer <- sf::st_intersection(sf_mfe_prov, target_buffer) |>
       na.omit()
     sf_mfe_buffer_list[[i]] <- int_buffer[as.character(sf::st_geometry_type(int_buffer)) %in% c("POLYGON", "MULTIPOLYGON"), , drop = FALSE]
