@@ -1,6 +1,6 @@
 #' Initialize spanish forested landscape
 #' 
-#' Initializes inputs for a target forested area for simulations with medfateland 
+#' Initializes inputs for a target Spanish forested area for simulations with medfateland 
 #' The target should be contained (or include the whole of) a Spanish province
 #'
 #' @param emf_dataset_path Path to the dataset folder
@@ -23,20 +23,20 @@
 #' @export
 #'
 #' @examples
-init_province_medfateland <- function(emf_dataset_path,
-                                      province_code = NULL,
-                                      target_polygon  = NULL,
-                                      target_raster = NULL,
-                                      buffer_dist = 50000,
-                                      ifn_imputation_source = "IFN4",
-                                      res = 500, 
-                                      crs_out = "EPSG:25830", 
-                                      fit_raster_extent = TRUE,
-                                      spatial_aggregation = TRUE,
-                                      height_correction = TRUE,
-                                      biomass_correction = TRUE,
-                                      soil_correction = TRUE,
-                                      verbose = TRUE) {
+init_spanish_forestland_medfateland <- function(emf_dataset_path,
+                                                province_code = NULL,
+                                                target_polygon  = NULL,
+                                                target_raster = NULL,
+                                                buffer_dist = 50000,
+                                                ifn_imputation_source = "IFN4",
+                                                res = 500, 
+                                                crs_out = "EPSG:25830", 
+                                                fit_raster_extent = TRUE,
+                                                spatial_aggregation = TRUE,
+                                                height_correction = TRUE,
+                                                biomass_correction = TRUE,
+                                                soil_correction = TRUE,
+                                                verbose = TRUE) {
   provinces <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
                  as.character(11:50))
   province_utm_fuses <- rep("30", 50) # Peninsular spain
