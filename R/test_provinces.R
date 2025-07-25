@@ -1,6 +1,5 @@
 source("R/init_province_medfateland.R")
 
-res <- 500
 buffer_dist <- 50000
 emf_dataset_path <- "~/datasets/"
 test_plots <- TRUE
@@ -9,6 +8,16 @@ provinces <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
                as.character(11:50))
 provinces <- sample(provinces)
 
+# res <- 1000
+# Raster definition
+raster_platon_specs <- readRDS("data-raw/penbal_platon_specs.rds")
+raster_platon <- terra::rast(
+  extent = raster_platon_specs$extent,
+  resolution = raster_platon_specs$resolution,
+  crs = raster_platon_specs$crs
+)
+res <- sqrt(prod(raster_platon_specs$resolution))
+  
 for(province_code in provinces) {
   out_sf <- paste0("data/provinces_",res,"m/medfateland_", province_code, "_sf_", res,"m.rds")
   output_tif <- paste0("data/provinces_", res, "m/medfateland_", province_code, "_raster_",res,"m.tif")
@@ -21,7 +30,7 @@ for(province_code in provinces) {
     if(province_code %in% c("35", "38")) {
       l <- init_province_medfateland(province_code = province_code,
                                      emf_dataset_path = emf_dataset_path,
-                                     res = res,
+                                     res = res, # Do not use target raster because it does not include Canary Islands
                                      buffer_dist = buffer_dist,
                                      crs_out = "EPSG:32628", # UTM 28N
                                      biomass_correction = FALSE, # Biomass map does not include Canary Islands
@@ -30,6 +39,7 @@ for(province_code in provinces) {
       l <- init_province_medfateland(province_code = province_code,
                                      emf_dataset_path = emf_dataset_path,
                                      res = res,
+                                     target_raster = raster_platon,
                                      buffer_dist = buffer_dist,
                                      crs_out = "EPSG:25830", # UTM 30N
                                      biomass_correction = TRUE,
@@ -37,7 +47,7 @@ for(province_code in provinces) {
     }
 
     saveRDS(dplyr::as_tibble(l$sf), file = out_sf)
-    terra::writeRaster(l$r, filename=output_tif)
+    terra::writeRaster(l$r, filename=output_tif, overwrite = TRUE)
     
     if(test_plots) {
       ggplot2::ggsave(paste0("plots/elevation_", province_code, "_", res, "m.png"),

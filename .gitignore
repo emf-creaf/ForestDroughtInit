@@ -4,5 +4,6 @@
 .Ruserdata
 README.html
 data
+data-raw
 plots/
 _targets/

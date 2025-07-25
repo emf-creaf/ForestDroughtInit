@@ -31,6 +31,7 @@ init_province_medfateland <- function(emf_dataset_path,
                                       ifn_imputation_source = "IFN4",
                                       res = 500, 
                                       crs_out = "EPSG:25830", 
+                                      fit_raster_extent = TRUE,
                                       spatial_aggregation = TRUE,
                                       height_correction = TRUE,
                                       biomass_correction = TRUE,
@@ -123,12 +124,13 @@ init_province_medfateland <- function(emf_dataset_path,
   sf_mfe_target_vect <- terra::vect(sf_mfe_target)
   if(is.null(target_raster)) {
     if(verbose) cli::cli_progress_step(paste0("Rasterize forest areas at ", res ,"m resolution"))
-    r_for <-terra::rast(terra::ext(sf_mfe_target_vect), resolution = c(res,res), crs = crs_out)
+    target_raster <-terra::rast(terra::ext(sf_mfe_target_vect), resolution = c(res,res), crs = crs_out)
   } else {
-    r_for <- target_raster
+    target_raster <- target_raster
+    if(fit_raster_extent) target_raster <- terra::crop(target_raster, terra::ext(sf_mfe_target_vect))
   }
   if(verbose) cli::cli_progress_step(paste0("Create sf object with forest locations at pixel locations"))
-  sf_for <- terra::intersect(terra::as.points(r_for), sf_mfe_target_vect) |>
+  sf_for <- terra::intersect(terra::as.points(target_raster), sf_mfe_target_vect) |>
     sf::st_as_sf()
   sf_for <- sf_for[,"geometry", drop = FALSE]
   rm(sf_mfe_target_vect)
@@ -216,7 +218,7 @@ init_province_medfateland <- function(emf_dataset_path,
     biomass_map <- terra::rast(paste0(emf_dataset_path,"RemoteSensing/Spain/CanopyBiomass/CanopyBiomass_Su2025/CanopyBiomass_2021.tif"))
     biomass_fact <- ceiling(res/50)
     if(spatial_aggregation) biomass_map <- terra::aggregate(biomass_map, fact = biomass_fact, fun = "median", na.rm = TRUE)
-    r_biomass_map <- terra::resample(biomass_map, r_for) # Change CRS
+    r_biomass_map <- terra::resample(biomass_map, target_raster) # Change CRS
     sf_for <- medfateland::modify_forest_structure(x = sf_for, structure_map = r_biomass_map,
                                                    var = "aboveground_tree_biomass", map_var = "CanopyBiomass_2021",
                                                    biomass_function = IFNallometry::IFNbiomass_medfate,
@@ -255,6 +257,6 @@ init_province_medfateland <- function(emf_dataset_path,
                                         progress = FALSE)
   }
   
-  r_for$value <- TRUE
-  return(list(sf = sf_for, r = r_for))
+  target_raster$value <- TRUE
+  return(list(sf = sf_for, r = target_raster))
 }
