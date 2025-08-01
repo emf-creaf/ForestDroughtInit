@@ -3,7 +3,7 @@ source("R/init_spanish_forestland_medfateland.R")
 # Top parameters
 emf_dataset_path <- "~/datasets/"
 test_plots <- TRUE
-res <- 1000
+res <- 500
 buffer_dist <- 50000
 
 # Provinces to process
@@ -51,14 +51,14 @@ for(province_code in provinces) {
     }
     
     # Call initialisation routine
-    l <- init_province_medfateland(province_code = province_code,
-                                   emf_dataset_path = emf_dataset_path,
-                                   res = res, 
-                                   target_raster = target_raster,
-                                   buffer_dist = buffer_dist,
-                                   crs_out = crs_out, 
-                                   biomass_correction = biomass_correction, 
-                                   ifn_imputation_source = ifn_imputation_source)
+    l <- init_spanish_forestland_medfateland(province_code = province_code,
+                                             emf_dataset_path = emf_dataset_path,
+                                             res = res, 
+                                             target_raster = target_raster,
+                                             buffer_dist = buffer_dist,
+                                             crs_out = crs_out, 
+                                             biomass_correction = biomass_correction, 
+                                             ifn_imputation_source = ifn_imputation_source)
 
     # Store sf object and raster    
     saveRDS(dplyr::as_tibble(l$sf), file = out_sf)
