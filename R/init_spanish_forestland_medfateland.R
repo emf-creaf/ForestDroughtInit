@@ -14,6 +14,7 @@
 #' @param height_correction Logical flag to try tree height correction
 #' @param biomass_correction Logical flag to try tree biomass_correction
 #' @param soil_correction Logical flag to try soil depth and rock fragment content correction
+#' @param river_network Logical flag to add river network
 #' @param verbose Logical flag for console output
 #' 
 #' @author Rodrigo Balaguer Romano
@@ -36,6 +37,7 @@ init_spanish_forestland_medfateland <- function(emf_dataset_path,
                                                 height_correction = TRUE,
                                                 biomass_correction = TRUE,
                                                 soil_correction = TRUE,
+                                                river_network = FALSE,
                                                 verbose = TRUE) {
   provinces <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
                  as.character(11:50))
@@ -256,7 +258,9 @@ init_spanish_forestland_medfateland <- function(emf_dataset_path,
     sf_for <- medfateland::modify_soils(sf_for, soil_depth_map = soil_depth_mm, depth_to_bedrock_map = depth_to_bedrock_mm,
                                         progress = FALSE)
   }
-  
+  if(river_network) {
+    
+  }
   target_raster$value <- TRUE
   return(list(sf = sf_for, r = target_raster))
 }
