@@ -2,7 +2,7 @@
 
 ## What the workflow does?
 
-+ Creates `sf` objects and raster definitions to be used in simulations with package **medfateland** for a given province or a polygon within it.
++ Creates `sf` objects and raster definitions (*.tif* files) to be used in simulations with package **medfateland** for a given province or a polygon within it.
 
 ## Data dependencies
 
@@ -28,17 +28,18 @@
 
 ## Outputs
 
-+ `sf` objects and raster masks ready for **medfateland** simulations for the target area.
++ `sf` objects ready for **medfateland** simulations for the target area.
++ Raster definitions (*.tif* files) from which point coordinates have been defined.
 
 
 ## Steps
 
-These are coded in function `init_province_medfateland()`:
+These are coded in function `init_spanish_forestland_medfateland()`:
 
   1. Check inputs and, if necessary, set the target polygon and the buffer zone.
   2. Determine the set of Spanish provinces touched by the target area or buffer zone.
   3. Determine National Forest Map (MFE25) polygons overlapping the target area or buffer zone.
-  4. Define raster at desired resolution (e.g. 200m, 250m or 500 m, depending on computational resources) over the forested area (set of MFE polygons in the target area ).
+  4. Define raster at desired resolution (e.g. 100m, 200m or 500 m, depending on computational resources) over the forested area (set of MFE polygons in the target area ).
   5. Define target locations using intersection between (1) and (2). These will be treated as forest stands in a circular area of 25m-radius (like IFN plots).
   6. Use digital elevation model (DEM) for touched provinces and function `add_topography()` to extract elevation and estimate slope and aspect.
   7. Load forest inventory data for touched provinces, as sf objects for package medfateland.
@@ -54,3 +55,12 @@ These are coded in function `init_province_medfateland()`:
 
   + Canopy height from PlanetScope product at 30 m (derived from 3m data): https://zenodo.org/records/8154445 
   + PlanetScope product: https://zenodo.org/records/8154445 
+
+
+## Processing functions
+
+
+|  R script  |   Functionality provided  |
+|-------------|------------------|
+| `Catalunya_counties.R` | Forested landscapes for counties in Catalunya  |
+| `Spanish_provinces.R` | Forested landscapes for Spanish provinces |
