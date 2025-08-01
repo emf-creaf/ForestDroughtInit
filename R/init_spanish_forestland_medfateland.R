@@ -32,6 +32,7 @@ init_spanish_forestland_medfateland <- function(emf_dataset_path,
                                                 ifn_imputation_source = "IFN4",
                                                 res = 500, 
                                                 crs_out = "EPSG:25830", 
+                                                forests_only = TRUE,
                                                 fit_raster_extent = TRUE,
                                                 spatial_aggregation = TRUE,
                                                 height_correction = TRUE,
@@ -123,20 +124,35 @@ init_spanish_forestland_medfateland <- function(emf_dataset_path,
   rm(sf_mfe_buffer_list)
   rm(sf_mfe_target_list)
   gc()
-  sf_mfe_target_vect <- terra::vect(sf_mfe_target)
-  if(is.null(target_raster)) {
-    if(verbose) cli::cli_progress_step(paste0("Rasterize forest areas at ", res ,"m resolution"))
-    target_raster <-terra::rast(terra::ext(sf_mfe_target_vect), resolution = c(res,res), crs = crs_out)
-  } else {
-    target_raster <- target_raster
-    if(fit_raster_extent) target_raster <- terra::crop(target_raster, terra::ext(sf_mfe_target_vect))
-  }
-  if(verbose) cli::cli_progress_step(paste0("Create sf object with forest locations at pixel locations"))
-  sf_for <- terra::intersect(terra::as.points(target_raster), sf_mfe_target_vect) |>
-    sf::st_as_sf()
-  sf_for <- sf_for[,"geometry", drop = FALSE]
-  rm(sf_mfe_target_vect)
   
+  target_polygon_vect <- terra::vect(target_polygon)
+  sf_mfe_target_vect <- terra::vect(sf_mfe_target)
+  if(forests_only) {
+    if(is.null(target_raster)) {
+      if(verbose) cli::cli_progress_step(paste0("Rasterize forest areas at ", res ,"m resolution"))
+      target_raster <-terra::rast(terra::ext(sf_mfe_target_vect), resolution = c(res,res), crs = crs_out)
+    } else {
+      target_raster <- target_raster
+      if(fit_raster_extent) target_raster <- terra::crop(target_raster, terra::ext(sf_mfe_target_vect))
+    }
+    if(verbose) cli::cli_progress_step(paste0("Create sf object with forest locations at pixel locations"))
+    sf_out <- terra::intersect(terra::as.points(target_raster), sf_mfe_target_vect) |>
+      sf::st_as_sf()
+    sf_out <- sf_out[,"geometry", drop = FALSE]
+    rm(sf_mfe_target_vect)
+  } else {
+    if(is.null(target_raster)) {
+      if(verbose) cli::cli_progress_step(paste0("Rasterize target area at ", res ,"m resolution"))
+      target_raster <-terra::rast(terra::ext(target_polygon_vect), resolution = c(res,res), crs = crs_out)
+    } else {
+      target_raster <- target_raster
+      if(fit_raster_extent) target_raster <- terra::crop(target_raster, terra::ext(target_polygon_vect))
+    }
+    if(verbose) cli::cli_progress_step(paste0("Create sf object with locations at pixel locations"))
+    sf_out <- terra::intersect(terra::as.points(target_raster), target_polygon_vect) |>
+      sf::st_as_sf()
+    sf_out <- sf_out[,"geometry", drop = FALSE]
+  }
   
   if(verbose) cli::cli_progress_step(paste0("Add topography to sf (and filter locations with missing topography)"))
   dem <- NULL
@@ -156,15 +172,44 @@ init_spanish_forestland_medfateland <- function(emf_dataset_path,
   if(spatial_aggregation) { # Aggregate from 25 to the output resolution (finer DEM is used for imputation)
     dem_fact <- ceiling(res/25)
     dem_agg <- terra::aggregate(dem, fact = dem_fact, fun = "mean", na.rm = TRUE)
-    sf_for <- medfateland::add_topography(sf_for, dem = dem_agg, progress = FALSE) |>
+    sf_out <- medfateland::add_topography(sf_out, dem = dem_agg, progress = FALSE) |>
       medfateland::check_topography(missing_action = "filter", verbose = FALSE)
   } else {
-    sf_for <- medfateland::add_topography(sf_for, dem = dem, progress = FALSE) |>
+    sf_out <- medfateland::add_topography(sf_out, dem = dem, progress = FALSE) |>
       medfateland::check_topography(missing_action = "filter", verbose = FALSE)
   }
 
-  if(verbose) cli::cli_progress_step(paste0("Define land cover for ", nrow(sf_for) , " locations"))
-  sf_for$land_cover_type <- "wildland"  
+  if(forests_only) {
+    sf_out$land_cover_type <- "wildland"  
+    if(verbose) cli::cli_progress_step(paste0("Define forest land cover for ", nrow(sf_out) , " locations"))
+  } else {
+    sf_out$land_cover_type <- NA
+    lc_thesaurus <- readxl::read_xlsx("data-raw/LandCover_CODIIGE.xlsx")
+    for(prov in touched_provinces) {
+      file_lcm <- paste0(emf_dataset_path, "LandCover/Spain/SIOSE_2014/SIOSE_2014_PROVINCES_H30_GPKG/", 
+                         "SIOSE_", prov ,"_H30_2014.gpkg")
+      if(file.exists(file_lcm)) {
+        if(verbose) cli::cli_progress_step(paste0("Reading land cover for ", prov))
+        lcm_prov <- terra::vect(file_lcm)
+        lcm_prov_map <- lcm_prov |>
+          dplyr::select(CODIIGE) |>
+          dplyr::left_join(lc_thesaurus, by = "CODIIGE") |>
+          dplyr::select(MEDFATELAND) |>
+          terra::rasterize(target_raster, field = "MEDFATELAND")
+        
+        lc<-terra::extract(lcm_prov_map, terra::vect(sf_out))$MEDFATELAND
+        sf_out$land_cover_type[!is.na(lc)] <- as.character(lc[!is.na(lc)])
+      }
+    }
+    
+    # Set to agriculture NA to later replace wildland from MFE
+    sf_out$land_cover_type[is.na(sf_out$land_cover_type)] <- "agriculture"
+
+    ## REPLACE land cover type from land cover map with forests for MFE polygons
+    for_rast <- !is.na(terra::rasterize(sf_mfe_target_vect, target_raster, field = "Class"))
+    sf_out$land_cover_type[terra::extract(for_rast, sf_out)$Class] <- "wildland"
+    if(verbose) cli::cli_progress_step(paste0("Define forest land cover for ", sum(terra::extract(for_rast, sf_out)$Class) , " locations"))
+  }
   
   if(verbose) cli::cli_progress_step(paste0("Load ", ifn_imputation_source, " imputation source(s)"))
   sf_nfi_list <- vector("list", length(touched_provinces))
@@ -185,14 +230,14 @@ init_spanish_forestland_medfateland <- function(emf_dataset_path,
     medfateland::check_topography(missing_action = "filter", verbose = FALSE)|>
     medfateland::check_forests(missing_action = "filter", SpParams = traits4models::SpParamsES, verbose = FALSE)
   
-  if(verbose) cli::cli_progress_step(paste0("Forest imputation for ", nrow(sf_for) , " locations from ", nrow(sf_nfi), " forest plots"))
+  if(verbose) cli::cli_progress_step(paste0("Forest imputation from ", nrow(sf_nfi), " forest plots"))
   forest_map <- terra::vect(sf_mfe_buffer)
-  sf_for <- medfateland::impute_forests(sf_for, sf_fi = sf_nfi, dem = dem, forest_map = forest_map, progress = FALSE)
+  sf_out <- medfateland::impute_forests(sf_out, sf_fi = sf_nfi, dem = dem, forest_map = forest_map, progress = FALSE)
   rm(dem)
 
   # Fill missing (missing tree or shrub codes should be dealt with before launching simulations)
   if(verbose) cli::cli_progress_step(paste0("Check missing forests"))
-  sf_for <- medfateland::check_forests(sf_for, default_forest = medfate::emptyforest(), verbose = FALSE) 
+  sf_out <- medfateland::check_forests(sf_out, default_forest = medfate::emptyforest(), verbose = FALSE) 
   
   if(height_correction) {
     if(verbose) cli::cli_progress_step(paste0("Load vegetation height map"))
@@ -210,9 +255,11 @@ init_spanish_forestland_medfateland <- function(emf_dataset_path,
     }
     # Modify forest height
     if(verbose) cli::cli_progress_step(paste0("Correct tree height"))
-    sf_for <- medfateland::modify_forest_structure(x = sf_for, structure_map =  height_map,
+    sf_out <- medfateland::modify_forest_structure(x = sf_out, structure_map =  height_map,
                                                    variable = "mean_tree_height", map_var = names(height_map)[1], 
                                                    progress = FALSE)
+    rm(height_map)
+    rm(height_map_prov)
   }
   
   if(biomass_correction) {
@@ -221,19 +268,21 @@ init_spanish_forestland_medfateland <- function(emf_dataset_path,
     biomass_fact <- ceiling(res/50)
     if(spatial_aggregation) biomass_map <- terra::aggregate(biomass_map, fact = biomass_fact, fun = "median", na.rm = TRUE)
     r_biomass_map <- terra::resample(biomass_map, target_raster) # Change CRS
-    sf_for <- medfateland::modify_forest_structure(x = sf_for, structure_map = r_biomass_map,
+    sf_out <- medfateland::modify_forest_structure(x = sf_out, structure_map = r_biomass_map,
                                                    var = "aboveground_tree_biomass", map_var = "CanopyBiomass_2021",
                                                    biomass_function = IFNallometry::IFNbiomass_medfate,
                                                    biomass_arguments = list(fraction = "aboveground",level = "stand"),
                                                    SpParams = traits4models::SpParamsES,
                                                    progress = FALSE)
+    rm(biomass_map)
+    rm(r_biomass_map)
   }
   
-  if(verbose) cli::cli_progress_step(paste0("Read soil data from SoilGrids2.0 for ", nrow(sf_for), " locations."))
+  if(verbose) cli::cli_progress_step(paste0("Read soil data from SoilGrids2.0 for ", nrow(sf_out), " locations."))
   soilgrids_path = paste0(emf_dataset_path, "Soils/Global/SoilGrids/Spain/")
-  sf_for <- medfateland::add_soilgrids(sf_for, soilgrids_path = soilgrids_path, progress = FALSE)
+  sf_out <- medfateland::add_soilgrids(sf_out, soilgrids_path = soilgrids_path, progress = FALSE)
   if(verbose) cli::cli_progress_step(paste0("Fill missing soil data with defaults"))
-  sf_for <- medfateland::check_soils(sf_for,  missing_action = "default", 
+  sf_out <- medfateland::check_soils(sf_out,  missing_action = "default", 
                         default_values = c(clay = 25, sand = 25, bd = 1.5, rfc = 25), verbose = FALSE)
   if(verbose) cli::cli_progress_done()
   
@@ -255,12 +304,16 @@ init_spanish_forestland_medfateland <- function(emf_dataset_path,
     # Bed rock in MEDFATE units
     depth_to_bedrock_mm <- bdticm*10
     # Modify soils
-    sf_for <- medfateland::modify_soils(sf_for, soil_depth_map = soil_depth_mm, depth_to_bedrock_map = depth_to_bedrock_mm,
+    sf_out <- medfateland::modify_soils(sf_out, soil_depth_map = soil_depth_mm, depth_to_bedrock_map = depth_to_bedrock_mm,
                                         progress = FALSE)
   }
-  if(river_network) {
-    
+  if((!forests_only) && river_network) {
+    rivers_a <-terra::vect(paste0(emf_dataset_path, "Hydrography/Spain/RedHidrografica/Rios_Pfafs/A_RiosCompletosv2.shp"))
+    rivers_m <-terra::vect(paste0(emf_dataset_path, "Hydrography/Spain/RedHidrografica/Rios_Pfafs/M_RiosCompletosv2.shp"))
+    rivers <- c(rivers_a, rivers_m)
+    rivers_rast <- !is.na(terra::rasterize(terra::vect(rivers), target_raster, field = "OBJECTID"))
+    sf_out$channel <- terra::extract(rivers_rast, sf_out, ID = FALSE)$OBJECTID
   }
   target_raster$value <- TRUE
-  return(list(sf = sf_for, r = target_raster))
+  return(list(sf = sf_out, r = target_raster))
 }
