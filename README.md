@@ -65,5 +65,5 @@ These are coded in function `define_spanish_landscape()`:
 
 |  R script  |   Functionality provided  |
 |-------------|------------------|
-| `Catalunya_counties.R` | Forested landscapes for counties in Catalunya  |
+| `Catalunya_counties.R` | Whole-landscapes and forested landscapes for counties in Catalunya  |
 | `Spanish_provinces.R` | Forested landscapes for Spanish provinces |
