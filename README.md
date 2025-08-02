@@ -11,6 +11,7 @@
 | Province limits   |     `[emf_dataset_path]/PoliticalBoundaries/Spain/Provincias_ETRS89_30N/`             | |
 | PNOA MDT 25 m     |            `[emf_dataset_path]/Topography/Spain/PNOA_MDT25_PROVINCES_ETRS89/`    | |
 | MFE 1:25000       | `[emf_dataset_path]/ForestMaps/Spain/MFE25/`    | |
+| SIOSE 1:25000 (2014)  | `[emf_dataset_path]/LandCover/Spain/SIOSE_2014/` | |
 | PNOA Canopy height 25 m | `[emf_dataset_path]/RemoteSensing/Spain/CanopyHeight/PNOA_NDSMV_1Cob_PROVINCES_ETRS89`| |
 | Biomass in Iberian Peninsula (Su et al. 2025) | `[emf_dataset_path]/RemoteSensing/Spain/ForestBiomass/ForestBiomass_Su2025`| |
 | IFN for medfateland     | `[emf_dataset_path]/ForestInventories/IFN_medfateland/`    | `emf_forestables_medfate` |
@@ -39,9 +40,10 @@ These are coded in function `init_spanish_forestland_medfateland()`:
   1. Check inputs and, if necessary, set the target polygon and the buffer zone.
   2. Determine the set of Spanish provinces touched by the target area or buffer zone.
   3. Determine National Forest Map (MFE25) polygons overlapping the target area or buffer zone.
-  4. Define raster at desired resolution (e.g. 100m, 200m or 500 m, depending on computational resources) over the forested area (set of MFE polygons in the target area ).
-  5. Define target locations using intersection between (1) and (2). These will be treated as forest stands in a circular area of 25m-radius (like IFN plots).
+  4. If not supplied as input, define raster at desired resolution (e.g. 100m, 200m or 500 m, depending on computational resources) over the target polygon.
+  5. Define target locations over the forested area (set of MFE polygons in the target area ) or the whole area (if non-forest land cover are to be included).
   6. Use digital elevation model (DEM) for touched provinces and function `add_topography()` to extract elevation and estimate slope and aspect.
+  7. Define land cover type 
   7. Load forest inventory data for touched provinces, as sf objects for package medfateland.
   8. Use polygons in 3, DEM and function `impute_forests()` to perform imputation using: (a) the target sf with topography; (b) forest inventory data; (c) the forest map and (d) the DEM.
   9. Load mean tree height raster (m) and correct mean tree height using function `modify_forest_structure()`.

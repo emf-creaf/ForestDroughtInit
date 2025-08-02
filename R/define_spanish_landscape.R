@@ -6,10 +6,13 @@
 #' @param emf_dataset_path Path to the dataset folder
 #' @param province_code String with the code of the province containing the target polygon
 #' @param target_polygon Target polygon for the study area. If missing the whole province is taken
+#' @param target_raster 
 #' @param buffer_dist Distance (in m) used for defining a buffer from which information can be drawn
 #' @param ifn_imputation_source String indicating the forest inventory version to use in forest stand imputation ("IFN2", "IFN3" or "IFN4")
 #' @param res Spatial resolution (in m) of the raster definition.
 #' @param crs_out String of the CRS 
+#' @param forests_only 
+#' @param fit_raster_extent 
 #' @param spatial_aggregation Performs aggregation (median) of DEM, height map and biomass map to the output raster resolution before using them.
 #' @param height_correction Logical flag to try tree height correction
 #' @param biomass_correction Logical flag to try tree biomass_correction
@@ -24,22 +27,22 @@
 #' @export
 #'
 #' @examples
-init_spanish_forestland_medfateland <- function(emf_dataset_path,
-                                                province_code = NULL,
-                                                target_polygon  = NULL,
-                                                target_raster = NULL,
-                                                buffer_dist = 50000,
-                                                ifn_imputation_source = "IFN4",
-                                                res = 500, 
-                                                crs_out = "EPSG:25830", 
-                                                forests_only = TRUE,
-                                                fit_raster_extent = TRUE,
-                                                spatial_aggregation = TRUE,
-                                                height_correction = TRUE,
-                                                biomass_correction = TRUE,
-                                                soil_correction = TRUE,
-                                                river_network = FALSE,
-                                                verbose = TRUE) {
+define_spanish_landscape <- function(emf_dataset_path,
+                                     province_code = NULL,
+                                     target_polygon  = NULL,
+                                     target_raster = NULL,
+                                     buffer_dist = 50000,
+                                     ifn_imputation_source = "IFN4",
+                                     res = 500, 
+                                     crs_out = "EPSG:25830", 
+                                     forests_only = TRUE,
+                                     fit_raster_extent = TRUE,
+                                     spatial_aggregation = TRUE,
+                                     height_correction = TRUE,
+                                     biomass_correction = TRUE,
+                                     soil_correction = TRUE,
+                                     river_network = FALSE,
+                                     verbose = TRUE) {
   provinces <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
                  as.character(11:50))
   province_utm_fuses <- rep("30", 50) # Peninsular spain
@@ -294,7 +297,7 @@ init_spanish_forestland_medfateland <- function(emf_dataset_path,
     bdrlog <- terra::rast(paste0(emf_dataset_path, "Soils/Global/SoilDepth_Shangguan2017/BDRLOG_M_250m_ll.tif"))
     # Absolute depth to bedrock (cm)
     bdticm <- terra::rast(paste0(emf_dataset_path, "Soils/Global/SoilDepth_Shangguan2017/BDTICM_M_250m_ll.tif"))
-    x_vect <- terra::vect(sf::st_transform(sf::st_geometry(sf_for), terra::crs(bdricm)))
+    x_vect <- terra::vect(sf::st_transform(sf::st_geometry(sf_out), terra::crs(bdricm)))
     x_ext <- terra::ext(x_vect)
     bdricm <- terra::crop(bdricm, x_ext, snap = "out")
     bdrlog <- terra::crop(bdrlog, x_ext, snap = "out")
