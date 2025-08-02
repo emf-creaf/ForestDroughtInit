@@ -17,6 +17,7 @@
 | IFN for medfateland     | `[emf_dataset_path]/ForestInventories/IFN_medfateland/`    | `emf_forestables_medfate` |
 | SoilGrids 2.0     |  `[emf_dataset_path]/Soils/Global/SoilGrids/`  | |
 | Soil depth data from Shangguan et al. (2017) | `[emf_dataset_path]/Soils/Global/SoilDepth_Shangguan2017/` | |
+| Rios Pfafs | `[emf_dataset_path]/Hydrography/Spain/RedHidrografica/Rios_Pfafs/` | |
 
 ## EMF R packages dependencies
 
@@ -35,7 +36,7 @@
 
 ## Steps
 
-These are coded in function `init_spanish_forestland_medfateland()`:
+These are coded in function `define_spanish_landscape()`:
 
   1. Check inputs and, if necessary, set the target polygon and the buffer zone.
   2. Determine the set of Spanish provinces touched by the target area or buffer zone.
@@ -43,15 +44,15 @@ These are coded in function `init_spanish_forestland_medfateland()`:
   4. If not supplied as input, define raster at desired resolution (e.g. 100m, 200m or 500 m, depending on computational resources) over the target polygon.
   5. Define target locations over the forested area (set of MFE polygons in the target area ) or the whole area (if non-forest land cover are to be included).
   6. Use digital elevation model (DEM) for touched provinces and function `add_topography()` to extract elevation and estimate slope and aspect.
-  7. Define land cover type 
-  7. Load forest inventory data for touched provinces, as sf objects for package medfateland.
-  8. Use polygons in 3, DEM and function `impute_forests()` to perform imputation using: (a) the target sf with topography; (b) forest inventory data; (c) the forest map and (d) the DEM.
-  9. Load mean tree height raster (m) and correct mean tree height using function `modify_forest_structure()`.
-  10. Load aboveground tree biomass raster (Mg/m) from ALS-Sentinel product for the Iberian Peninsula (yrs. 2017-2021): https://zenodo.org/records/15032832 
-  11. Define aboveground tree biomass function (using https://github.com/emf-creaf/IFNallometry) and correct tree density using function modify_forest_structure(). 
-  12. Use function `add_soilgrids()` to draw soil information from SoilGrids 2.0 data
-  13. Use global product at 250 m (Shangguan et al. 2017) and function `modify_soils()` to correct soil depth /rock fragment content.
-  14. Store sf object 
+  7. Define land cover type (for non-forested landscapes).
+  8. Load forest inventory data for touched provinces, as sf objects for package medfateland.
+  9. Use polygons in 3, DEM and function `impute_forests()` to perform imputation using: (a) the target sf with topography; (b) forest inventory data; (c) the forest map and (d) the DEM.
+  10. Load mean tree height raster (m) and correct mean tree height using function `modify_forest_structure()`.
+  11. Load aboveground tree biomass raster (Mg/m) from ALS-Sentinel product for the Iberian Peninsula (yrs. 2017-2021): https://zenodo.org/records/15032832 
+  12. Define aboveground tree biomass function (using https://github.com/emf-creaf/IFNallometry) and correct tree density using function modify_forest_structure(). 
+  13. Use function `add_soilgrids()` to draw soil information from SoilGrids 2.0 data
+  14. Use global product at 250 m (Shangguan et al. 2017) and function `modify_soils()` to correct soil depth /rock fragment content.
+  15. Add river network if required (in landscapes including non-forested areas).
 
 ## Alternative data sources
 
